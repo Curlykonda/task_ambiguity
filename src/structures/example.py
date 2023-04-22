@@ -4,7 +4,8 @@ from dataclasses import dataclass
 @dataclass
 class Example:
     """
-    A dataclass to create an example construction and retain relevant information on the two possible tasks within that construction
+    A dataclass to create an example construction and retain relevant information on the two possible tasks
+    within that construction
     An Example is a Construction + associated metadata regarding that Example
 
     For example:

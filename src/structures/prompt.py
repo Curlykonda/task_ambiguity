@@ -1,7 +1,20 @@
+import logging
 import random
+from typing import List, Optional, Tuple
 
-from src.structures.construction_types import get_generator_from_construction_type
-from src.structures.instruction import Instruction
+from src.example_generation import (
+    ExampleCategory,
+    ExampleGenerator,
+    GenerationCategories,
+    get_generator_from_construction_type,
+)
+from src.structures.example import Example
+from src.structures.instruction import (
+    Instruction,
+    get_instruction_from_construction_type,
+)
+
+logger = logging.getLogger("PromptConstructionLog")
 
 
 class Prompt:
@@ -39,17 +52,21 @@ class Prompt:
         prob_of_ambiguous,
         for_finetuning,
         finetuning_control,
-        salient_task=None,
+        salient_task: Optional[str] = None,
     ):
 
         self.shots = shots
         self.construction_type = construction_type
-        self.examples = []
+        self.instruction = get_instruction_from_construction_type(
+            self.construction_type
+        )
         self.format_type = format_type
-        self.instruction = ""
-        self.clarifying_assertion = ""
 
-        # makes examples based on type of test being run: either with an explicit sales task or without
+        self.examples = []
+        self.clarifying_assertion = ""
+        self.salient_category: GenerationCategories  # underlying ground truth category that determines the labels
+
+        # makes examples based on type of test being run: either with an explicit salient task or without
         if salient_task is not None:
             self.make_given_distribution_examples(
                 prob_of_ambiguous=prob_of_ambiguous,
@@ -192,7 +209,7 @@ class Prompt:
         needs_informative,
         for_finetuning,
         finetuning_control,
-        salient_task,
+        salient_task: str,
     ):
         """
         Generates examples given a salient task
@@ -237,7 +254,7 @@ class Prompt:
 
             example_type = random.choice(examples_distribution)
 
-            # Randomzies the example generated which maintaining the specified salient test for the set of examples
+            # Randomzies the example generated which maintaining the specified salient task for the set of examples
             if example_type == "disambiguating":
                 if randomize_tasks and salient == "task_a":
                     example = construction_obj.generate_example(
@@ -286,11 +303,149 @@ class Prompt:
             current_examples.append(example)
             self.examples.append(example)
 
+        # get salient category that determines labels
+        self.salient_category = self.get_salient_category_from_example_set(
+            current_examples,
+            construction_obj,
+            include_ambiguous_examples=True,
+            salient_task_a_or_b=salient,
+        )
+
         # adds instruction if needed
         if needs_instruction:
-            self.instruction = self.generate_instruction(
-                current_examples, needs_informative, True, salient
+            self.instruction_text = self.generate_instruction(
+                self.salient_category, needs_informative
             )
+
+    def obtain_salient_task_key(self, current_examples) -> Tuple[str, bool]:
+        """
+        Obtains the correct salient task from the examples + query in the prompt
+
+        This is necessary because Examples are generated randomly,
+        so we need to infer the salient task that would have produced the Example
+
+        For example: if in current examples,
+        Example 1: {task_a_label = True, task_b_label = True, active_task_label = True}
+        Example 2: {task_a_label = False, task_b_label = False, active_task_label = False}
+        Query: {task_a_label = True, task_b_label = False, active_task_label = True}
+
+        query.active_task_label == first_example.active_task_label,
+        so salient_example = first_example
+        this means that the example which we will need to focus on to determine
+        the salient task is Example 1
+
+        because query.active_task_label = True,
+        and query.task_a_label == salient_example.task_a_label,
+        and query_task_a_label,
+        we return ('task_a', True), meaning that the first task from the first example
+        is the task determining the instruction
+
+        let's see a Prompt for which this would occur (and the corresponding task labels
+        remain the same as previously discussed):
+        The critic is in the theatre.
+        > X
+        The hound is in the prairie.
+        > Y
+        The surveyor is in the canyon.
+        > X
+
+        Following the above logic, we can conclude that the salient_example must be the first example, and the salient_task
+        must be 'task_a' and the instruction should assert 'A' in the case that task_a_label is True.
+
+        The resulting instruction would be "Output 'X' if the sentence contains a reference to a human and 'Y' otherwise."
+        which can be verified as the correct disambiguating instruction.
+
+        Args:
+            current_examples (Example): a list of all the examples (and the query) in the current prompt
+        Returns:
+            tuple: (name of salient task, bool of that tasks' label)
+        """
+
+        assert len(current_examples) >= 3
+
+        first_example = current_examples[0]
+        second_example = current_examples[1]
+        query = current_examples[2]
+
+        if query.active_task_label == first_example.active_task_label:
+            salient_example = first_example
+        else:
+            salient_example = second_example
+
+        if query.active_task_label:
+            if query.task_a_label == salient_example.task_a_label:
+                if query.task_a_label:
+                    return ("task_a", True)
+
+                else:
+                    return ("task_a", False)
+
+            else:
+                if query.task_b_label:
+                    return ("task_b", True)
+                else:
+                    return ("task_b", False)
+        else:
+            if query.task_a_label == salient_example.task_a_label:
+                if query.task_a_label:
+                    return ("task_a", False)
+                else:
+                    return ("task_a", True)
+            else:
+                if query.task_b_label:
+                    return ("task_b", False)
+                else:
+                    return ("task_b", True)
+
+    def create_salient_task_key(
+        self, current_examples, salient_task: str
+    ) -> Tuple[str, bool]:
+        """
+        Creates a tuple of the salient task and its label for the current prompt
+
+        Args:
+            current_examples (list(Example)): a list of all the examples (and the query) in the current prompt
+            salient_task_a_or_b (str): the salient task for the current prompt, one of {'task_a', 'task_b'}
+        Returns:
+            tuple(str, bool): (name of salient task, bool of that tasks' label for set of examples)
+        """
+        query = current_examples[-1]
+
+        if salient_task is None:
+            print("WARNING: salient task is None but should be either [task_a, task_b]")
+
+        if salient_task == "task_a":
+            key_task_label = query.task_a_label
+        else:
+            key_task_label = query.task_b_label
+
+        if query.active_task_label:
+            return (salient_task, key_task_label)
+        else:
+            return (salient_task, not key_task_label)
+
+    def get_salient_category_from_example_set(
+        self,
+        examples: List[Example],
+        example_generator: ExampleGenerator,
+        include_ambiguous_examples: bool,
+        salient_task_a_or_b,
+    ) -> ExampleCategory:
+        """Determines the underlying category that generates the label for the example set"""
+
+        if include_ambiguous_examples:
+            salient_task_key = self.obtain_salient_task_key(examples)
+        else:
+            salient_task_key = self.create_salient_task_key(
+                examples, salient_task_a_or_b
+            )
+
+        # using task_key, determine salient category
+        salient_category = example_generator.get_salient_category_from_task_key(
+            salient_task_key
+        )
+
+        return salient_category
 
     def set_salient_task(
         self, current_examples, include_ambiguous_examples, salient_task_a_or_b=None
@@ -313,13 +468,11 @@ class Prompt:
 
     def generate_instruction(
         self,
-        current_examples,
-        needs_informative,
-        include_ambiguous_examples,
-        salient_task_a_or_b=None,
-    ):
+        salient_category: ExampleCategory,
+        needs_informative: bool,
+    ) -> str:
         """
-        Generates the correct instruction for the given salient task and set of examples for 20-example tests
+        Generates the correct instruction for the given salient category
 
         Args:
             current_examples (list): The current set of examples
@@ -328,33 +481,26 @@ class Prompt:
         Returns:
             Instruction (str): The correct instruction for the given salient task and set of examples
         """
+
         if needs_informative:
-            instruction = Instruction(
-                construction_type=self.construction_type
-            ).make_instruction(
-                current_examples, include_ambiguous_examples, salient_task_a_or_b
-            )
+            instruction = self.instruction.make_instruction(salient_category)
         else:
-            instruction = Instruction(
-                construction_type=self.construction_type
-            ).make_uninformative_instruction()
+            instruction = self.instruction.make_uninformative_instruction()
 
         return instruction
 
     def generate_clarifying_assertion(self):
-        return Instruction(
-            construction_type=self.construction_type
-        ).make_clarifying_assertion()
+        return self.instruction.make_clarifying_assertion()
 
-    def get_instruction(self):
-        return self.instruction
+    def get_instruction_text(self) -> str:
+        return self.instruction_text
 
     def get_clarifying_assertion(self):
         return self.clarifying_assertion
 
     def print(self):
         if self.generate_instruction:
-            print(str(self.instruction))
+            print(str(self.instruction_text))
         else:
             print(
                 "Output 'X' if the sentence contains a [cateogry withheld] 'Y' otherwise."

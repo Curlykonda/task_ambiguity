@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List
 
 from src.structures.api_access import OpenAI_APIAccess
+from src.structures.construction_types import ConstructionType
 from src.structures.prompt import Prompt
 
 logger = logging.getLogger("GenerateDataset")
@@ -21,24 +22,6 @@ logging.basicConfig(
     datefmt="%d/%m/%Y %H:%M:%S",
     level=logging.INFO,
 )
-
-CONSTRUCT_TYPE_MAP = {
-    "location": "subject_location",
-    "subject": "subject_location",
-    "religious": "religious_pronoun",
-    "pronoun": "religious_pronoun",
-    "propn": "propn_negation",
-    "negation": "propn_negation",
-}
-
-_CONSTRUCTION_TYPE_CHOICES = [
-    "subject",
-    "location",
-    "religious",
-    "negation",
-    "propn",
-    "pronoun",
-]
 
 
 @dataclass
@@ -102,8 +85,8 @@ class DatasetGenerator:
         finetuning_control = False
         for salient_task in self.config.construction_types:
 
-            if salient_task in CONSTRUCT_TYPE_MAP:
-                construction_type = CONSTRUCT_TYPE_MAP[salient_task]
+            if salient_task in ConstructionType.list():
+                construction_type = ConstructionType(salient_task)
             else:
                 logger.warning(
                     f"Salient task '{salient_task}' does not have valid mapping to construction type -> Skipped!"
@@ -129,9 +112,9 @@ class DatasetGenerator:
                 formatted_pair = api_access.generate_data_for_openai_finetuning(
                     format=self.config.construction_format,
                     needs_instruction=self.config.needs_instruction,
-                )  # { "prompt": prompt, "completion": completion }
+                )  # { "prompt": prompt, "completion": completion, "salient_category": salient_category }
 
-                formatted_pair["salient_task"] = prompt.examples[0].salient_task
+                formatted_pair["salient_category"] = prompt.salient_category.label
 
                 self.dataset.examples.append(formatted_pair)
 

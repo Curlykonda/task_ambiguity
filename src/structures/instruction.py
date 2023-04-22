@@ -1,4 +1,11 @@
-class Instruction:
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple, Union
+
+from src.example_generation import ExampleCategory, HumanSubjects
+from src.structures.construction_types import ConstructionType
+
+
+class Instruction(ABC):
     """
     Creates an instruction for each prompt
 
@@ -11,23 +18,23 @@ class Instruction:
         current_examples (Example): a list of all the examples and the query in the current prompt
     """
 
-    def __init__(self, construction_type):
+    def __init__(self, construction_type: ConstructionType):
         self.construction_type = construction_type
         self.tasks = [None, None]
         self.salient_task = None
 
-    def make_uninformative_instruction(self):
+    def make_uninformative_instruction(self) -> str:
         return "Output 'X' if the sentence contains a [category withheld] and 'Y' otherwise."
 
     def make_clarifying_assertion(self):
         return "Ask a clarifying question if you are unsure what to output in the following task.\nTask:\n"
 
-    def obtain_salient_task_key(self, current_examples):
+    def obtain_salient_task_key(self, current_examples) -> Tuple[str, bool]:
         """
         Obtains the correct salient task from the examples + query in the prompt
 
         This is necessary because Examples are generated randomly,
-        so we need to infer the salient task that would have produced the Example"
+        so we need to infer the salient task that would have produced the Example
 
         For example: if in current examples,
         Example 1: {task_a_label = True, task_b_label = True, active_task_label = True}
@@ -57,14 +64,17 @@ class Instruction:
         Following the above logic, we can conclude that the salient_example must be the first example, and the salient_task
         must be 'task_a' and the instruction should assert 'A' in the case that task_a_label is True.
 
-        The resulting instruction would be "Output 'X' if the sentence contains a reference to a human and 'Y' otherwise." which
-        can be verified as the correct disambiguating instruction.
+        The resulting instruction would be "Output 'X' if the sentence contains a reference to a human and 'Y' otherwise."
+        which can be verified as the correct disambiguating instruction.
 
         Args:
             current_examples (Example): a list of all the examples (and the query) in the current prompt
         Returns:
             tuple: (name of salient task, bool of that tasks' label)
         """
+
+        assert len(current_examples) >= 3
+
         first_example = current_examples[0]
         second_example = current_examples[1]
         query = current_examples[2]
@@ -100,7 +110,10 @@ class Instruction:
                     return ("task_b", True)
 
     def set_salient_task(
-        self, current_examples, include_ambiguous_examples, salient_task_a_or_b
+        self,
+        current_examples,
+        include_ambiguous_examples: bool,
+        salient_task_a_or_b: Optional[str] = None,
     ):
         """
         Sets the salient_task for the current example.
@@ -136,7 +149,9 @@ class Instruction:
             salient_task_key, current_examples
         )
 
-    def create_salient_task_key(self, current_examples, salient_task_a_or_b):
+    def create_salient_task_key(
+        self, current_examples, salient_task: str
+    ) -> Tuple[str, bool]:
         """
         Creates a tuple of the salient task and its label for the current prompt
 
@@ -148,46 +163,28 @@ class Instruction:
         """
         query = current_examples[-1]
 
-        if salient_task_a_or_b == "task_a":
+        if salient_task is None:
+            print("WARNING: salient task is None but should be either [task_a, task_b]")
+
+        if salient_task == "task_a":
             key_task_label = query.task_a_label
         else:
             key_task_label = query.task_b_label
 
         if query.active_task_label:
-            return (salient_task_a_or_b, key_task_label)
+            return (salient_task, key_task_label)
         else:
-            return (salient_task_a_or_b, not key_task_label)
+            return (salient_task, not key_task_label)
 
-    def make_instruction(
-        self, current_examples, include_ambiguous_examples, salient_task_a_or_b
-    ):
+    @abstractmethod
+    def make_instruction(self, salient_category: ExampleCategory) -> str:
         """
-        Picks the correct type of construction to make and creates the construction.
+        Given the salient category, creates an instruction string.
 
-        Args:
-            current_examples (list(Example)): a list of all the examples (and the query) in the current prompt
         Returns:
             instruction (str): a string consisting of the correct instruction for given the Prompt
         """
-        # chooses the correction function to create the salient_task_key based on whether or not the prompt includes ambiguous examples
-        if include_ambiguous_examples:
-            salient_task_key = self.obtain_salient_task_key(current_examples)
-        else:
-            salient_task_key = self.create_salient_task_key(
-                current_examples, salient_task_a_or_b
-            )
-
-        # creates an instruction based on the construction_type
-        construction_type_map = {
-            "subject_location": SubjectLocationInstruction(self.construction_type),
-            "religious_pronoun": ReligiousPronounInstruction(self.construction_type),
-            "propn_negation": PropNNegationInstruction(self.construction_type),
-        }
-
-        instruction = construction_type_map[self.construction_type].make_instruction(
-            salient_task_key
-        )
-        return instruction
+        raise NotImplementedError()
 
     def set_custom_salient_task(self, salient_task_key, current_examples):
         if salient_task_key[0] == "task_a":
@@ -208,22 +205,12 @@ class SubjectLocationInstruction(Instruction):
     For example: 'Output 'X' if the sentence contains a reference to an outdoor setting and 'Y' otherwise'
     """
 
-    def __init__(self, construction_type):
+    def __init__(self, construction_type: ConstructionType):
         self.construction_type = construction_type
         self.tasks = ["subject", "location"]
 
-    def make_instruction(self, salient_task_key):
-        salient_task_map = {
-            ("task_a", True): "a human",
-            ("task_a", False): "an animal",
-            ("task_b", True): "an indoor setting",
-            ("task_b", False): "an outdoor setting",
-        }
-
-        salient_feature = salient_task_map[salient_task_key]
-        instruction = f"Output 'X' if the sentence contains a reference to {salient_feature} and 'Y' otherwise."
-
-        return instruction
+    def make_instruction(self, salient_category: ExampleCategory) -> str:
+        return f"Output 'X' if the sentence contains a reference to {salient_category.instruction} and 'Y' otherwise."
 
 
 class ReligiousPronounInstruction(Instruction):
@@ -237,18 +224,8 @@ class ReligiousPronounInstruction(Instruction):
         self.construction_type = construction_type
         self.tasks = ["religious", "pronoun"]
 
-    def make_instruction(self, salient_task_key):
-        salient_task_map = {
-            ("task_a", True): "contains a reference to a religious leader",
-            ("task_a", False): "does not contain a reference to a religious leader",
-            ("task_b", True): "contains a male pronoun",
-            ("task_b", False): "contains a female pronoun",
-        }
-
-        salient_feature = salient_task_map[salient_task_key]
-        instruction = f"Output 'X' if the sentence {salient_feature} and 'Y' otherwise."
-
-        return instruction
+    def make_instruction(self, salient_category: ExampleCategory) -> str:
+        return f"Output 'X' if the sentence {salient_category.instruction} and 'Y' otherwise."
 
 
 class PropNNegationInstruction(Instruction):
@@ -262,15 +239,43 @@ class PropNNegationInstruction(Instruction):
         self.construction_type = construction_type
         self.tasks = ["propn", "negation"]
 
-    def make_instruction(self, salient_task_key):
-        salient_task_map = {
-            ("task_a", True): "contains a proper noun",
-            ("task_a", False): "does not contain a proper noun",
-            ("task_b", True): "does not contain a negation",
-            ("task_b", False): "contains a negation",
-        }
+    def make_instruction(self, salient_category: ExampleCategory) -> str:
 
-        salient_feature = salient_task_map[salient_task_key]
-        instruction = f"Output 'X' if the sentence {salient_feature} and 'Y' otherwise."
+        if isinstance(salient_category, HumanSubjects):
+            instruct = "does not contain a proper noun"
+        else:
+            instruct = salient_category.instruction
 
-        return instruction
+        return f"Output 'X' if the sentence {instruct} and 'Y' otherwise."
+
+
+def get_instruction_from_construction_type(
+    construction_type: Union[str, ConstructionType]
+) -> Instruction:
+
+    if isinstance(construction_type, str):
+        construction_type = ConstructionType(construction_type)
+
+    if construction_type in [
+        ConstructionType.LOCATION,
+        ConstructionType.SUBJECT,
+        ConstructionType.SUBJECT_LOCATION,
+    ]:
+        return SubjectLocationInstruction(construction_type)
+    elif construction_type in [
+        ConstructionType.PROPN,
+        ConstructionType.NEGATION,
+        ConstructionType.PROPN_NEGATION,
+    ]:
+        return PropNNegationInstruction(construction_type)
+    elif construction_type in [
+        ConstructionType.RELIGIOUS,
+        ConstructionType.PRONOUN,
+        ConstructionType.RELIGIOUS_PRONOUN,
+    ]:
+        return ReligiousPronounInstruction(construction_type)
+
+    else:
+        raise ValueError(
+            f"Undefined mapping to instruction for: {repr(construction_type)}"
+        )
