@@ -35,7 +35,7 @@ class UrbanLocations(ExampleCategory):
         "grocery store",
     ]
     parent = ConstructionType.LOCATION
-    instruction = "an outdoor setting"
+    instruction = "an indoor setting"
 
 
 class NaturalLocations(ExampleCategory):
@@ -54,7 +54,7 @@ class NaturalLocations(ExampleCategory):
         "meadow",
     ]
     parent = ConstructionType.LOCATION
-    instruction = "an indoor setting"
+    instruction = "an outdoor setting"
 
 
 class HumanSubjects(ExampleCategory):
@@ -151,7 +151,7 @@ class MalePronouns(ExampleCategory):
 
 class ProperNouns(ExampleCategory):
 
-    label = "propn"
+    label = "proper_noun"
     values = [
         "Lebron James",
         "Bernie Sanders",
@@ -185,13 +185,15 @@ class Affirmations(ExampleCategory):
 
 
 class GenerationCategories(ExtendedEnum):
+    """Selection of possible categories that can underlie the example generation"""
+
     URBAN_LOCATIONS = UrbanLocations
     NATURAL_LOCATIONS = NaturalLocations
     HUMAN_SUBJECTS = HumanSubjects
     ANIMAL_SUBJECTS = AnimalSubjects
     RELIGIGOUS_LEADERS = RegligiousLeaders
     SECULAR_LEADERS = SecularLeaders
-    PROPN = ProperNouns
+    PROPER_NOUN = ProperNouns
     NEGATATIONS = Negations
     AFFIRMATIONS = Affirmations
     FEMALE_PRONOUNS = FemalePronouns

@@ -67,7 +67,7 @@ class QueryPipeline:
                 needs_instruction=needs_instruction,
                 needs_informative=needs_informative,
                 include_ambiguous_examples=include_ambiguous_examples,
-                salient_task=salient_task,
+                salient_type=salient_task,
                 prob_of_ambiguous=prob_of_ambiguous,
                 for_finetuning=for_finetuning,
                 finetuning_control=finetuning_control,

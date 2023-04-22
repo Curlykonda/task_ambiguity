@@ -106,7 +106,7 @@ Create a new Visualizer object and call the function corresponding to the test y
 
 In ``visualizer.py`` you can set the output path for the generated figure in the last line of each function.
 
-# Documenting import bits of Code
+# Documenting important bits of Code
 
 ## `Prompt` class
 ```
@@ -149,4 +149,8 @@ To create a set examples, we wish to obtain a JSON file with queries and their e
 ```
 
 
-#
+# How to determine salient category label?
+
+The salient category is the specific category that underlies the labels for a set of examples. It is more specific than the salient task - which takes values like `subject` or `location` (stored in `ConstructionType`).
+
+First, the salient task needs to be determined. This is necessary because `Examples` are generated randomly, so we need to infer the salient task that would have produced the `Example`.
