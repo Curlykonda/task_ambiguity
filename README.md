@@ -1,9 +1,9 @@
 
 # Overview
 
-This repository contains code for the paper [Task Ambiguity in Humans and Language Models](https://arxiv.org/abs/2212.10711).
+This repository is an extension of the code for the paper [Task Ambiguity in Humans and Language Models](https://arxiv.org/abs/2212.10711).
 
-Within this repository is AmbiBench, a new benchmark of six ambiguously-specified classification tasks. The goal of AmbiBench is to construct a testbed of minimal complexity where we can control and measure the degree of ambiguity in various task specifications.
+It focuses on generating datasets of AmbiBench, a new benchmark of six ambiguously-specified classification tasks. The goal of AmbiBench is to construct a testbed of minimal complexity where we can control and measure the degree of ambiguity in various task specifications.
 
 The code contains functionality to test language models on the three different AmbiBench settings discussed in the paper:
 1.  task disambiguation using natural language instructions

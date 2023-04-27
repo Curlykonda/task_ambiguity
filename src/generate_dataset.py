@@ -58,6 +58,11 @@ class AmbiBenchDataset:
         default_factory=list, metadata={"help": "List of query-completion tuple"}
     )
 
+    assistance_prompts: Dict[str, str] = field(
+        default_factory=dict,
+        metadata={"help": "Additional prompts for COT, clarification, verbalisation"},
+    )
+
     @classmethod
     def from_dict(cls, params):
         class_fields = {f.name for f in fields(cls)}
@@ -123,6 +128,14 @@ class DatasetGenerator:
                 formatted_pair["salient_category"] = prompt.salient_category.label
 
                 self.dataset.examples.append(formatted_pair)
+
+        # Note: currently assuming that assitance prompts are general across examples and don't depend on construction type
+        self.dataset.assistance_prompts[
+            "clarify"
+        ] = prompt.generate_clarifying_assertion()
+        self.dataset.assistance_prompts[
+            "rule_prediction"
+        ] = prompt.generate_category_prediction_prompt()
 
     def save_examples_as_json(self, output_dir: str):
         os.makedirs(output_dir, exist_ok=True)

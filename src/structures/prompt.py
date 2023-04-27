@@ -490,8 +490,11 @@ class Prompt:
             instruction = self.instruction.make_uninformative_instruction()
         return instruction
 
-    def generate_clarifying_assertion(self):
+    def generate_clarifying_assertion(self) -> str:
         return self.instruction.make_clarifying_assertion()
+
+    def generate_category_prediction_prompt(self, davinci_version="003") -> str:
+        return self.instruction.make_verbalize_category(davinci_version)
 
     def get_instruction_text(self) -> str:
         return self.instruction_text

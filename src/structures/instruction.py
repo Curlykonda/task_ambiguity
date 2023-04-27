@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Optional, Union
 
 from src.example_generation import ExampleCategory, HumanSubjects
 from src.structures.construction_types import ConstructionType
+
+CATEGORY_WITHHELD = "[category withheld]"
 
 
 class Instruction(ABC):
@@ -23,10 +25,28 @@ class Instruction(ABC):
         self.salient_task = None
 
     def make_uninformative_instruction(self) -> str:
-        return "Output 'X' if the sentence contains a [category withheld] and 'Y' otherwise."
+        return f"Output 'X' if the sentence contains a {CATEGORY_WITHHELD} and 'Y' otherwise."
 
-    def make_clarifying_assertion(self):
+    def make_clarifying_assertion(self) -> str:
         return "Ask a clarifying question if you are unsure what to output in the following task.\nTask:\n"
+
+    def make_verbalize_category(self, davinci_version="003") -> str:
+        if "002" == davinci_version:
+            return f"What is the {CATEGORY_WITHHELD}?"
+        else:
+            return f"What is your best guess for the {CATEGORY_WITHHELD} above?"
+
+    def make_mc_category_prediction(self, n_options: Optional[int] = None) -> str:
+        # create prompt to predict category from multiple choice
+        mc_stem = "Select one from the folliwng {} options:"
+        if n_options is not None:
+            mc_prompt = mc_stem.format(n_options)
+        else:
+            mc_prompt = mc_stem.format("")
+
+        return (
+            f"What is your best guess for the {CATEGORY_WITHHELD} above? " + mc_prompt
+        )
 
     @abstractmethod
     def make_instruction(self, salient_category: ExampleCategory) -> str:
