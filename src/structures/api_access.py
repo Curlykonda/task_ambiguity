@@ -194,7 +194,7 @@ class OpenAI_APIAccess:
         if not to_togethercomputer:
             if needs_instruction:
                 return (
-                    self.prompt.get_instruction()
+                    self.prompt.get_instruction_text()
                     + "\n"
                     + self.parsed_prompt_df["formatted_construction"].str.cat(sep="\n")
                 )
@@ -206,7 +206,7 @@ class OpenAI_APIAccess:
 
             if needs_instruction:
                 construction_list[0] = (
-                    self.prompt.get_instruction() + "\n" + construction_list[0]
+                    self.prompt.get_instruction_text() + "\n" + construction_list[0]
                 )
             for i in range(1, len(construction_list)):
                 construction_list[i] = (

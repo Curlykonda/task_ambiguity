@@ -1,9 +1,9 @@
 
 # Overview
 
-This repository contains code for the paper [Task Ambiguity in Humans and Language Models](https://arxiv.org/abs/2212.10711).
+This repository is an extension of the code for the paper [Task Ambiguity in Humans and Language Models](https://arxiv.org/abs/2212.10711).
 
-Within this repository is AmbiBench, a new benchmark of six ambiguously-specified classification tasks. The goal of AmbiBench is to construct a testbed of minimal complexity where we can control and measure the degree of ambiguity in various task specifications.
+It focuses on generating datasets of AmbiBench, a new benchmark of six ambiguously-specified classification tasks. The goal of AmbiBench is to construct a testbed of minimal complexity where we can control and measure the degree of ambiguity in various task specifications.
 
 The code contains functionality to test language models on the three different AmbiBench settings discussed in the paper:
 1.  task disambiguation using natural language instructions
@@ -106,7 +106,7 @@ Create a new Visualizer object and call the function corresponding to the test y
 
 In ``visualizer.py`` you can set the output path for the generated figure in the last line of each function.
 
-# Documenting import bits of Code
+# Documenting important bits of Code
 
 ## `Prompt` class
 ```
@@ -149,4 +149,8 @@ To create a set examples, we wish to obtain a JSON file with queries and their e
 ```
 
 
-#
+# How to determine salient category label?
+
+The salient category is the specific category that underlies the labels for a set of examples. It is more specific than the salient task - which takes values like `subject` or `location` (stored in `ConstructionType`).
+
+First, the salient task needs to be determined. This is necessary because `Examples` are generated randomly, so we need to infer the salient task that would have produced the `Example`.

@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List
 
 from src.structures.api_access import OpenAI_APIAccess
+from src.structures.construction_types import ConstructionType
 from src.structures.prompt import Prompt
 
 logger = logging.getLogger("GenerateDataset")
@@ -21,24 +22,6 @@ logging.basicConfig(
     datefmt="%d/%m/%Y %H:%M:%S",
     level=logging.INFO,
 )
-
-CONSTRUCT_TYPE_MAP = {
-    "location": "subject_location",
-    "subject": "subject_location",
-    "religious": "religious_pronoun",
-    "pronoun": "religious_pronoun",
-    "propn": "propn_negation",
-    "negation": "propn_negation",
-}
-
-_CONSTRUCTION_TYPE_CHOICES = [
-    "subject",
-    "location",
-    "religious",
-    "negation",
-    "propn",
-    "pronoun",
-]
 
 
 @dataclass
@@ -51,6 +34,7 @@ class AmbiBenchConfig:
 
     needs_instruction: bool = False
     needs_informative: bool = False
+    no_salient_task: bool = False
     include_ambiguous_examples: bool = False
     construction_types: List[str] = field(
         default_factory=list,
@@ -72,6 +56,11 @@ class AmbiBenchDataset:
     config: AmbiBenchConfig
     examples: List[Dict[str, str]] = field(
         default_factory=list, metadata={"help": "List of query-completion tuple"}
+    )
+
+    assistance_prompts: Dict[str, str] = field(
+        default_factory=dict,
+        metadata={"help": "Additional prompts for COT, clarification, verbalisation"},
     )
 
     @classmethod
@@ -100,15 +89,20 @@ class DatasetGenerator:
         # for now assume values for two-feature tests
         for_finetuning = True
         finetuning_control = False
-        for salient_task in self.config.construction_types:
+        for construct_type in self.config.construction_types:
 
-            if salient_task in CONSTRUCT_TYPE_MAP:
-                construction_type = CONSTRUCT_TYPE_MAP[salient_task]
+            if construct_type in ConstructionType.list():
+                construction_type = ConstructionType(construct_type)
             else:
                 logger.warning(
-                    f"Salient task '{salient_task}' does not have valid mapping to construction type -> Skipped!"
+                    f"Construction type string '{construct_type}' does not have valid mapping to construction type -> Skipped!"
                 )
                 continue
+
+            if self.config.no_salient_task:
+                salient_task = None
+            else:
+                salient_task = construction_type
 
             for i in range(n_queries):
 
@@ -119,7 +113,7 @@ class DatasetGenerator:
                     needs_instruction=self.config.needs_instruction,
                     needs_informative=self.config.needs_informative,
                     include_ambiguous_examples=self.config.include_ambiguous_examples,
-                    salient_task=salient_task,
+                    salient_type=salient_task,
                     prob_of_ambiguous=self.config.prob_of_ambiguous,
                     for_finetuning=for_finetuning,
                     finetuning_control=finetuning_control,
@@ -129,11 +123,19 @@ class DatasetGenerator:
                 formatted_pair = api_access.generate_data_for_openai_finetuning(
                     format=self.config.construction_format,
                     needs_instruction=self.config.needs_instruction,
-                )  # { "prompt": prompt, "completion": completion }
+                )  # { "prompt": prompt, "completion": completion, "salient_category": salient_category }
 
-                formatted_pair["salient_task"] = prompt.examples[0].salient_task
+                formatted_pair["salient_category"] = prompt.salient_category.label
 
                 self.dataset.examples.append(formatted_pair)
+
+        # Note: currently assuming that assitance prompts are general across examples and don't depend on construction type
+        self.dataset.assistance_prompts[
+            "clarify"
+        ] = prompt.generate_clarifying_assertion()
+        self.dataset.assistance_prompts[
+            "rule_prediction"
+        ] = prompt.generate_category_prediction_prompt()
 
     def save_examples_as_json(self, output_dir: str):
         os.makedirs(output_dir, exist_ok=True)
@@ -153,7 +155,8 @@ def _get_args() -> argparse.Namespace:
         required=False,
         default="location",
         help="Provide 1 or more tasks/categories for which to generate examples",
-    )  # choices=_CONSTRUCTION_TYPE_CHOICES,
+        choices=ConstructionType.list(),
+    )
     parser.add_argument(
         "--construction_format",
         choices=["arrow", "qa"],
@@ -165,7 +168,7 @@ def _get_args() -> argparse.Namespace:
         "--n_shots",
         type=int,
         required=False,
-        default=1,
+        default=3,
         help="Number of shots per query",
     )
     parser.add_argument(
@@ -180,6 +183,11 @@ def _get_args() -> argparse.Namespace:
     parser.add_argument("--needs_informative", action="store_true")
     parser.add_argument("--needs_multiple_choice", action="store_true")
     parser.add_argument("--include_ambiguous_examples", action="store_true")
+    parser.add_argument(
+        "--no_salient_task",
+        action="store_true",
+        help="Do not explicitly use construction type as salient task.",
+    )
     parser.add_argument("--verbose", type=bool, required=False, default=True)
     parser.add_argument("--prob_of_ambiguous", type=float, required=False, default=50)
 
