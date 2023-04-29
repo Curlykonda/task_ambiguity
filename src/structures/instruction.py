@@ -38,7 +38,7 @@ class Instruction(ABC):
 
     def make_mc_category_prediction(self, n_options: Optional[int] = None) -> str:
         # create prompt to predict category from multiple choice
-        mc_stem = "Select one from the folliwng {} options:"
+        mc_stem = "Select one label from the folliwng {} options:"
         if n_options is not None:
             mc_prompt = mc_stem.format(n_options)
         else:

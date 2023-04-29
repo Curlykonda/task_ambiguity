@@ -3,11 +3,10 @@ import random
 from typing import List, Optional, Tuple
 
 from src.example_generation import (
-    ExampleCategory,
     ExampleGenerator,
-    GenerationCategories,
     get_generator_from_construction_type,
 )
+from src.structures.category import ExampleCategory, GenerationCategories
 from src.structures.construction_types import ConstructionType
 from src.structures.example import Example
 from src.structures.instruction import get_instruction_from_construction_type
@@ -495,6 +494,27 @@ class Prompt:
 
     def generate_category_prediction_prompt(self, davinci_version="003") -> str:
         return self.instruction.make_verbalize_category(davinci_version)
+
+    def generate_multiple_choice_categories(self, num_options=4) -> str:
+        # randomly sample categories for multiple choice and format as string
+        if self.salient_category is None:
+            raise AttributeError(
+                "Salient category was not set yet! First generate examples to determine the salient category."
+            )
+        else:
+            candidate_cats = GenerationCategories.label_list()
+            candidate_cats.remove(self.salient_category.label)
+
+            sampled_cats = random.choices(candidate_cats, k=num_options - 1)
+            sampled_cats.append(self.salient_category.label)
+            random.shuffle(sampled_cats)
+
+            # construct string
+            multiple_choice = ""
+            for i in range(num_options):
+                multiple_choice += f"{i+1}. {sampled_cats[i]}\n"
+
+            return multiple_choice
 
     def get_instruction_text(self) -> str:
         return self.instruction_text

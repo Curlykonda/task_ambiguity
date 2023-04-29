@@ -9,10 +9,12 @@ import datetime
 import json
 import logging
 import os
+import random
 from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List
 
 from src.structures.api_access import OpenAI_APIAccess
+from src.structures.category import GenerationCategories
 from src.structures.construction_types import ConstructionType
 from src.structures.prompt import Prompt
 
@@ -24,12 +26,17 @@ logging.basicConfig(
 )
 
 
+def set_random_seed(seed: int) -> None:
+    random.seed(seed)
+
+
 @dataclass
 class AmbiBenchConfig:
 
     construction_format: str
     n_shots: int
     n_queries: int
+    n_multiple_choices: int
     prob_of_ambiguous: float
 
     needs_instruction: bool = False
@@ -56,6 +63,11 @@ class AmbiBenchDataset:
     config: AmbiBenchConfig
     examples: List[Dict[str, str]] = field(
         default_factory=list, metadata={"help": "List of query-completion tuple"}
+    )
+
+    candidate_categories: List[str] = field(
+        default_factory=list,
+        metadata={"help": "List of possible categories that could generate examples."},
     )
 
     assistance_prompts: Dict[str, str] = field(
@@ -89,6 +101,7 @@ class DatasetGenerator:
         # for now assume values for two-feature tests
         for_finetuning = True
         finetuning_control = False
+
         for construct_type in self.config.construction_types:
 
             if construct_type in ConstructionType.list():
@@ -127,6 +140,13 @@ class DatasetGenerator:
 
                 formatted_pair["salient_category"] = prompt.salient_category.label
 
+                if self.config.n_multiple_choices > 0:
+                    formatted_pair[
+                        "multiple_choice_category"
+                    ] = prompt.generate_multiple_choice_categories(
+                        self.config.n_multiple_choices
+                    )
+
                 self.dataset.examples.append(formatted_pair)
 
         # Note: currently assuming that assitance prompts are general across examples and don't depend on construction type
@@ -134,17 +154,30 @@ class DatasetGenerator:
             "clarify"
         ] = prompt.generate_clarifying_assertion()
         self.dataset.assistance_prompts[
-            "rule_prediction"
+            "category_prediction"
         ] = prompt.generate_category_prediction_prompt()
 
-    def save_examples_as_json(self, output_dir: str):
-        os.makedirs(output_dir, exist_ok=True)
-        file_path = os.path.join(
-            output_dir, f"{self.dataset.date}_ambibench_examples.json"
-        )
+        # add all possible categories
+        self.dataset.candidate_categories = GenerationCategories.label_list()
 
-        with open(file_path, "w", encoding="utf-8") as f_out:
-            json.dump(asdict(self.dataset), f_out, indent=4)
+    def save_examples_as_json(self, output_dir: str, jsonl=False):
+        os.makedirs(output_dir, exist_ok=True)
+
+        if jsonl:
+            file_path = os.path.join(
+                output_dir, f"{self.dataset.date}_ambibench_examples.jsonl"
+            )
+            with open(file_path, "w") as f_out:
+                json.dump(asdict(self.dataset), f_out)
+        else:
+            file_path = os.path.join(
+                output_dir, f"{self.dataset.date}_ambibench_examples.json"
+            )
+
+            with open(file_path, "w", encoding="utf-8") as f_out:
+                json.dump(asdict(self.dataset), f_out, indent=4)
+
+        logger.info(f"Dataset saved to: {file_path}")
 
 
 def _get_args() -> argparse.Namespace:
@@ -178,6 +211,14 @@ def _get_args() -> argparse.Namespace:
         default=10,
         help="Number of queries/examples to generate",
     )
+    parser.add_argument(
+        "--n_multiple_choices",
+        type=int,
+        required=False,
+        default=4,
+        help="Number of multiple-choice categories",
+    )
+
     # parser.add_argument('--model', type=str, required=False, default="text-davinci-003")
     parser.add_argument("--needs_instruction", action="store_true")
     parser.add_argument("--needs_informative", action="store_true")
@@ -191,12 +232,21 @@ def _get_args() -> argparse.Namespace:
     parser.add_argument("--verbose", type=bool, required=False, default=True)
     parser.add_argument("--prob_of_ambiguous", type=float, required=False, default=50)
 
+    parser.add_argument(
+        "--seed",
+        type=int,
+        required=False,
+        default=1337,
+        help="Random seed",
+    )
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
     args = _get_args()
+    set_random_seed(args.seed)
 
     config = AmbiBenchConfig.from_dict(vars(args))
 
