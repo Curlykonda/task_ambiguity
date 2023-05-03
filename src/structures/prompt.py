@@ -512,7 +512,7 @@ class Prompt:
             # construct string
             multiple_choice = ""
             for i in range(num_options):
-                multiple_choice += f"{i+1}. {sampled_cats[i]}\n"
+                multiple_choice += f"- {sampled_cats[i]}\n"
 
             return multiple_choice
 

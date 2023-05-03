@@ -9,7 +9,6 @@ import datetime
 import json
 import logging
 import os
-import random
 from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List
 
@@ -24,10 +23,6 @@ logging.basicConfig(
     datefmt="%d/%m/%Y %H:%M:%S",
     level=logging.INFO,
 )
-
-
-def set_random_seed(seed: int) -> None:
-    random.seed(seed)
 
 
 @dataclass
@@ -94,9 +89,7 @@ class DatasetGenerator:
         )
 
     def generate_examples(self, n_queries):
-        # adapted from `Tester.run_two_feature_tests_with_two_set`
-        # two-feature tests {'subject_location', 'religious_pronoun', 'propn_negation'}
-
+        # adapted from `Tester.run_two_feature_tests_with_two_set` in original repo
         # TODO: change the following depending on test cases
         # for now assume values for two-feature tests
         for_finetuning = True
@@ -246,7 +239,6 @@ def _get_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = _get_args()
-    set_random_seed(args.seed)
 
     config = AmbiBenchConfig.from_dict(vars(args))
 

@@ -32,9 +32,9 @@ class Instruction(ABC):
 
     def make_verbalize_category(self, davinci_version="003") -> str:
         if "002" == davinci_version:
-            return f"What is the {CATEGORY_WITHHELD}?"
+            return f"What is the {CATEGORY_WITHHELD}?\nCategory:"
         else:
-            return f"What is your best guess for the {CATEGORY_WITHHELD} above?"
+            return f"What is your best guess for the {CATEGORY_WITHHELD} above?\nCategory   "
 
     def make_mc_category_prediction(self, n_options: Optional[int] = None) -> str:
         # create prompt to predict category from multiple choice
