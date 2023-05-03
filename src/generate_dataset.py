@@ -4,7 +4,6 @@ Instead of running the inference pipeline, these examples are stored in a JSON f
 
 """
 
-import argparse
 import datetime
 import json
 import logging
@@ -171,77 +170,3 @@ class DatasetGenerator:
                 json.dump(asdict(self.dataset), f_out, indent=4)
 
         logger.info(f"Dataset saved to: {file_path}")
-
-
-def _get_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--construction_types",
-        nargs="+",
-        required=False,
-        default="location",
-        help="Provide 1 or more tasks/categories for which to generate examples",
-        choices=ConstructionType.list(),
-    )
-    parser.add_argument(
-        "--construction_format",
-        choices=["arrow", "qa"],
-        type=str,
-        required=False,
-        default="qa",
-    )
-    parser.add_argument(
-        "--n_shots",
-        type=int,
-        required=False,
-        default=3,
-        help="Number of shots per query",
-    )
-    parser.add_argument(
-        "--n_queries",
-        type=int,
-        required=False,
-        default=10,
-        help="Number of queries/examples to generate",
-    )
-    parser.add_argument(
-        "--n_multiple_choices",
-        type=int,
-        required=False,
-        default=4,
-        help="Number of multiple-choice categories",
-    )
-
-    # parser.add_argument('--model', type=str, required=False, default="text-davinci-003")
-    parser.add_argument("--needs_instruction", action="store_true")
-    parser.add_argument("--needs_informative", action="store_true")
-    parser.add_argument("--needs_multiple_choice", action="store_true")
-    parser.add_argument("--include_ambiguous_examples", action="store_true")
-    parser.add_argument(
-        "--no_salient_task",
-        action="store_true",
-        help="Do not explicitly use construction type as salient task.",
-    )
-    parser.add_argument("--verbose", type=bool, required=False, default=True)
-    parser.add_argument("--prob_of_ambiguous", type=float, required=False, default=50)
-
-    parser.add_argument(
-        "--seed",
-        type=int,
-        required=False,
-        default=1337,
-        help="Random seed",
-    )
-
-    args = parser.parse_args()
-    return args
-
-
-if __name__ == "__main__":
-    args = _get_args()
-
-    config = AmbiBenchConfig.from_dict(vars(args))
-
-    data_generator = DatasetGenerator(config)
-    data_generator.generate_examples(config.n_queries)
-    data_generator.save_examples_as_json(output_dir="./for_finetuning")
