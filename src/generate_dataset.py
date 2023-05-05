@@ -154,19 +154,17 @@ class DatasetGenerator:
         # add all possible categories
         self.dataset.candidate_categories = GenerationCategories.label_list()
 
-    def save_examples_as_json(self, output_dir: str, jsonl=False):
+    def save_examples_as_json(
+        self, output_dir: str, f_name="ambibench_examples", jsonl=False
+    ):
         os.makedirs(output_dir, exist_ok=True)
 
         if jsonl:
-            file_path = os.path.join(
-                output_dir, f"{self.dataset.date}_ambibench_examples.jsonl"
-            )
+            file_path = os.path.join(output_dir, f"{self.dataset.date}_{f_name}.jsonl")
             with open(file_path, "w") as f_out:
                 json.dump(asdict(self.dataset), f_out)
         else:
-            file_path = os.path.join(
-                output_dir, f"{self.dataset.date}_ambibench_examples.json"
-            )
+            file_path = os.path.join(output_dir, f"{self.dataset.date}_{f_name}.json")
 
             with open(file_path, "w", encoding="utf-8") as f_out:
                 json.dump(asdict(self.dataset), f_out, indent=4)

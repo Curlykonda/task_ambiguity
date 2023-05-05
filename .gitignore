@@ -18,7 +18,7 @@ docs/
 
 build/credentials.sh
 data/*
-for_finetuning/*
+for_eval/*
 
 # Storing the NYU key to keep it out of the repo
 NYU_key.txt

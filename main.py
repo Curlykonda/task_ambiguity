@@ -44,7 +44,7 @@ def _get_args() -> argparse.Namespace:
         "--n_multiple_choices",
         type=int,
         required=False,
-        default=4,
+        default=5,
         help="Number of multiple-choice categories",
     )
 
@@ -85,8 +85,14 @@ if __name__ == "__main__":
 
     config = AmbiBenchConfig.from_dict(vars(args))
 
+    # for n in range(4, 22, 2):
+    #     config.n_shots = n
+
     data_generator = DatasetGenerator(config)
     data_generator.generate_examples(config.n_queries)
 
     if args.output_dir is not None:
-        data_generator.save_examples_as_json(output_dir=args.output_dir)
+        data_generator.save_examples_as_json(
+            output_dir=args.output_dir,
+            f_name=f"n{config.n_shots}_amb{config.prob_of_ambiguous}",
+        )
