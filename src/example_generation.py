@@ -292,7 +292,7 @@ def get_generator_from_construction_type(
     ]:
         return SubjectLocationGenerator(construction_type, format_type)
     elif construction_type in [
-        ConstructionType.PROPN,
+        ConstructionType.PROPER_NOUN,
         ConstructionType.NEGATION,
         ConstructionType.PROPN_NEGATION,
     ]:

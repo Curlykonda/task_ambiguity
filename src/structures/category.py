@@ -161,7 +161,7 @@ class ProperNouns(ExampleCategory):
         "Hermione Granger",
         "Jane Goodall",
     ]
-    parent = ConstructionType.PROPN
+    parent = ConstructionType.PROPER_NOUN
     instruction = "contains a proper noun"
 
 

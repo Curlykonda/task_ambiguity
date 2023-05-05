@@ -11,4 +11,4 @@ class ConstructionType(ExtendedEnum):
     NEGATION = "negation"
     PRONOUN = "pronoun"
     RELIGIOUS = "religious"
-    PROPN = "propn"
+    PROPER_NOUN = "proper_noun"

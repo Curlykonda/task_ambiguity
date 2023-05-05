@@ -46,7 +46,7 @@ class Prompt:
         needs_instruction: bool,
         needs_informative: bool,
         include_ambiguous_examples: bool,
-        prob_of_ambiguous: float,
+        prob_of_ambiguous: int,
         for_finetuning: bool,
         finetuning_control: bool,
         salient_type: Optional[ConstructionType] = None,
@@ -199,7 +199,7 @@ class Prompt:
 
     def make_given_distribution_examples(
         self,
-        prob_of_ambiguous,
+        prob_of_ambiguous: int,
         needs_instruction,
         needs_informative,
         for_finetuning,
@@ -230,7 +230,7 @@ class Prompt:
         possible_task_a = [
             ConstructionType.SUBJECT,
             ConstructionType.RELIGIOUS,
-            ConstructionType.PROPN,
+            ConstructionType.PROPER_NOUN,
         ]
         possible_task_b = [
             ConstructionType.LOCATION,
@@ -505,7 +505,7 @@ class Prompt:
             candidate_cats = GenerationCategories.label_list()
             candidate_cats.remove(self.salient_category.label)
 
-            sampled_cats = random.choices(candidate_cats, k=num_options - 1)
+            sampled_cats = random.sample(candidate_cats, k=num_options - 1)
             sampled_cats.append(self.salient_category.label)
             random.shuffle(sampled_cats)
 

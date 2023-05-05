@@ -31,7 +31,7 @@ class AmbiBenchConfig:
     n_shots: int
     n_queries: int
     n_multiple_choices: int
-    prob_of_ambiguous: float
+    prob_of_ambiguous: int
 
     needs_instruction: bool = False
     needs_informative: bool = False
@@ -42,7 +42,9 @@ class AmbiBenchConfig:
         metadata={"help": "List of tasks or categories for which to generate examples"},
     )
 
-    # model: str
+    def __post_init__(self):
+        if isinstance(self.prob_of_ambiguous, float):
+            self.prob_of_ambiguous = int(self.prob_of_ambiguous)
 
     @classmethod
     def from_dict(cls, params):
